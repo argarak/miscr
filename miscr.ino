@@ -63,12 +63,11 @@ class Command {
  public:
   int pin;
   int times; // TODO double data type for half-steps
-}
-
-Command::Command() {
-  pin = 0;
-  times = 0;
-}
+  Command() {
+    pin = 0;
+    times = 0;
+  }
+};
 
 /*
  * Stepper class, defines pins, whether it should be updated and a few control
@@ -84,7 +83,24 @@ class Stepper {
   bool update;
   Command command;
   int incr;
+  
+  Stepper(int stepPinIn, int dirPinIn, int enablePinIn,
+          int minPinIn, int maxPinIn) {
+    stepPin = stepPinIn;
+    dirPin = dirPinIn;
+    enablePin = enablePinIn;
+    minPin = minPinIn;
+    maxPin = maxPinIn;
+    update = false;
+    incr = 0;
+  }
 
+  void begin() {
+    pm(stepPin, OUTPUT);
+    pm(dirPin, OUTPUT);
+    pm(enablePin, OUTPUT);
+    dw(enablePin, LOW);
+  }
   //void step(double times) {}
   void testSpin(bool clockwise, int amount) {
     if(clockwise)
@@ -97,21 +113,6 @@ class Stepper {
   }
 };
 
-Stepper::Stepper(int stepPinIn, int dirPinIn, int enablePinIn,
-                 int minPinIn, int maxPinIn) {
-  stepPin = stepPinIn;
-  dirPin = dirPinIn;
-  enablePin = enablePinIn;
-  minPin = minPinIn;
-  maxPin = maxPinIn;
-  update = false;
-  incr = 0;
-
-  pm(stepPin, OUTPUT);
-  pm(dirPin, OUTPUT);
-  pm(enablePin, OUTPUT);
-  dw(enable, LOW);
-}
 
 // Initialise Steppers
 //         stepPin | dirPin | enablePin | minPin | maxPin 
@@ -141,9 +142,9 @@ bool parseGCode(String in) {
     return true;
   } else if(in == "?") {
     Serial.println("TODO Display info...");
-  } else {
-    return false;
+    return true;
   }
+  return false;
 }
 
 
@@ -156,11 +157,11 @@ void getSerialInput() {
 
   while(Serial.available()) {
       c = Serial.read();
-      out.concat(character);
+      out.concat(c);
   }
 
-  if(content != "") {
-    if(!parseGCode()) {
+  if(out != "") {
+    if(!parseGCode(out)) {
       Serial.println("Invalid GCode entered!");
     }
   }
@@ -172,6 +173,9 @@ void setup() {
 
   // Print welcome message
   Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n\n");
+
+  sX.begin();
+  sY.begin();
 }
 
 void loop() {
