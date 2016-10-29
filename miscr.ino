@@ -83,7 +83,7 @@ class Stepper {
   bool update;
   Command command;
   int incr;
-  
+
   Stepper(int stepPinIn, int dirPinIn, int enablePinIn,
           int minPinIn, int maxPinIn) {
     stepPin = stepPinIn;
@@ -129,53 +129,79 @@ Stepper sQ(36,       34,      30,         NULL,    NULL  );
 /* bool yswitch() {} */
 /* bool zswitch() {} */
 
+int getIndex(char code, String in) {
+  int codeIndex = in.indexOf(code);
+  int spaceIndex = in.indexOf(" ");
+  bool toEnd = false;
+
+  if(spaceIndex == -1) {
+    toEnd = true;
+    Serial.println("toEnd is true!");
+  }
+
+  if(codeIndex == -1) {
+    Serial.println("nope not found");
+    Serial.println("code = " + code);
+    return -1;
+  }
+
+  if(!toEnd) {
+    String toconvert = in.substring(codeIndex + 1, spaceIndex - 1);
+    Serial.println("convert :: " + toconvert);
+    return toconvert.toInt();
+  } else {
+    String toconvert = in.substring(codeIndex + 1);
+    Serial.println("convert :: " + toconvert);
+    return toconvert.toInt();
+  }
+
+  return -2;
+}
+
+int strtoint(String in) {return in.toInt();}
+
 /*
  * This function does not yet have any GCode parsing functionality,
  * it is currently only used for testing...
+ *
+ * Thanks to the blog post at:
+ * https://www.marginallyclever.com/2013/08/how-to-build-an-2-axis-arduino-cnc-gcode-interpreter/
+ * for helping me writing this function!
  */
 bool parseGCode(String in) {
-  if(in == "stopall") {
-    Serial.println("TODO Implement");
-    return true;
-  } else if(in == "startall") {
-    sX.testSpin(true, 360);
-    return true;
-  } else if(in == "?") {
-    Serial.println("TODO Display info...");
-    return true;
-  }
-  return false;
+  int index = getIndex('X', in);
+  if(index != -1) {
+    sX.testSpin(true, index);
+  } else
+    return false;
 }
 
+String serialStr = "";
 
 /*
  * Gets user serial input to be put into the parseGCode() function.
  */
 void getSerialInput() {
-  String out = "";
-  char c;
-
-  while(Serial.available()) {
-      c = Serial.read();
-      out.concat(c);
-  }
-
-  if(out != "") {
-    if(!parseGCode(out)) {
-      Serial.println("Invalid GCode entered!");
+  if(Serial.available() > 0) {
+    serialStr = Serial.readString();
+    serialStr.trim();
+    if(Serial.read() == -1) {
+      Serial.println(serialStr);
+      if(!parseGCode(serialStr))
+        Serial.println("Invalid GCode entered!");
     }
   }
 }
 
 void setup() {
   // Begin serial connection
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // Print welcome message
-  Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n\n");
+  Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n");
 
   sX.begin();
-  sY.begin();
+  //sY.begin();
 }
 
 void loop() {
