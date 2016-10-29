@@ -74,16 +74,17 @@ class Command {
  * functions - one for each stepper.
  */
 class Stepper {
- public:
+ private:
+  bool update;
+  Command command;
+  int incr;
   int stepPin;
   int dirPin;
   int enablePin;
   int minPin;
   int maxPin;
-  bool update;
-  Command command;
-  int incr;
 
+ public:
   Stepper(int stepPinIn, int dirPinIn, int enablePinIn,
           int minPinIn, int maxPinIn) {
     stepPin = stepPinIn;
@@ -110,6 +111,23 @@ class Stepper {
     update = true;
     command.pin = stepPin;
     command.times = amount;
+  }
+
+  void updateLoop() {
+    if(update) {
+      if(incr < command.times) {
+        // Alternate
+        dw(stepPin, HIGH);
+        delay(1);
+        dw(stepPin, LOW);
+
+        // Add one to increment
+        ++incr;
+      } else {
+        update = false;
+        incr = 0;
+      }
+    }
   }
 };
 
@@ -169,11 +187,14 @@ int strtoint(String in) {return in.toInt();}
  * for helping me writing this function!
  */
 bool parseGCode(String in) {
-  int index = getIndex('X', in);
-  if(index != -1) {
-    sX.testSpin(true, index);
-  } else
-    return false;
+  int xindex = getIndex('X', in);
+  //int yindex = getIndex('Y', in);
+
+  if(xindex != -1 && xindex != -2) sX.testSpin(true, xindex);
+  else Serial.println("getIndex::: x-error " + xindex);
+
+  //if(yindex != -1 && yindex != -2) sY.testSpin(true, yindex);
+  //else Serial.println("getIndex::: y-error " + yindex);
 }
 
 String serialStr = "";
@@ -200,27 +221,12 @@ void setup() {
   // Print welcome message
   Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n");
 
+  // Initialise motors
   sX.begin();
   //sY.begin();
 }
 
 void loop() {
   getSerialInput();
-
-  if(sX.update) {
-    if(sX.incr < sX.command.times) {
-      // Alternate
-      dw(sX.stepPin, HIGH);
-      delay(1);
-      dw(sX.stepPin, LOW);
-
-      // Add one to increment
-      ++sX.incr;
-    } else {
-      sX.update = false;
-      sX.incr = 0;
-    }
-  }
-
-  // TODO other motors
+  sX.updateLoop();
 }
