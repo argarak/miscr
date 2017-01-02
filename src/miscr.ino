@@ -4,7 +4,7 @@
 /*          mmmmm  mmm     mmm    mmm    m mm                               */
 /*          # # #    #    #   "  #"  "   #"  "                              */
 /*          # # #    #     """m  #       #                                  */
-/*          # # #  mm#mm  "mmm"  "#mm"   #    v0.1                          */
+/*          # # #  mm#mm  "mmm"  "#mm"   #    v0.11 pre-release             */
 /*                                                                          */
 /* Microcontroller Interfaced Stepper Control for Ramps                     */
 /*                                                                          */
@@ -91,15 +91,15 @@ class Stepper {
     dw(enablePin, LOW);
   }
   //void step(double times) {}
-  void testSpin(bool clockwise, int amount) {
+  void testSpin(int amount) {
     Serial.println(amount);
-    if(clockwise)
+    if(amount > 0)
       dw(dirPin, LOW);
     else
       dw(dirPin, HIGH);
     update = true;
     command.pin = stepPin;
-    command.times = amount;
+    command.times = abs(amount);
   }
 
   void updateLoop() {
@@ -196,6 +196,7 @@ int strtoint(String in) {return in.toInt();}
  * for helping me writing this function!
  */
 bool parseGCode(String in) {
+  //int gindex = getIndex('G', in);
   int xindex = getIndex('X', in);
   Serial.println(" ");
   Serial.println(in);
@@ -203,10 +204,10 @@ bool parseGCode(String in) {
   Serial.println(in);
   int yindex = getIndex('Y', in);
 
-  if(xindex != -1 && xindex != -2) sX.testSpin(true, xindex * 80);
+  if(xindex != -1 && xindex != -2) sX.testSpin(xindex * 80);
   else Serial.println("getIndex::: x-error " + xindex);
 
-  if(yindex != -1 && yindex != -2) sY.testSpin(true, yindex * 80);
+  if(yindex != -1 && yindex != -2) sY.testSpin(yindex * 80);
   else Serial.println("getIndex::: y-error " + yindex);
 
   // fallback now, will be better implemented later
