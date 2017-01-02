@@ -1,4 +1,4 @@
- 
+
 /****************************************************************************/
 /*                   "                                                      */
 /*          mmmmm  mmm     mmm    mmm    m mm                               */
@@ -8,21 +8,10 @@
 /*                                                                          */
 /* Microcontroller Interfaced Stepper Control for Ramps                     */
 /*                                                                          */
-/* This is just a prototype version for testing, without many features,     */
-/* it currently only includes a Stepper class definition and a few          */
-/* simple non-GCode commands which may be issued with a Serial Monitor.     */
-/* These include:                                                           */
-/*                                                                          */
-/*     * startall - Spins all of the motors clockwise and then              */
-/*                  anticlockwise 360 degrees;                              */
-/*     * stopall  - Terminate the spinning process - if there is one;       */
-/*     * startx   - Only spin the X Stepper;                                */
-/*     * starty   - Only spin the Y Stepper;                                */
-/*                                                                          */
-/* (Only two start functions as I don't have more than two Steppers         */
-/* connected in my current setup)                                           */
-/*                                                                          */
 /* Copyright 2016 Jakub Kukiełka                                            */
+/*                                                                          */
+/* Please see https://github.com/argarak/miscr/wiki/TODO-List for a list of */
+/* the features to be done and the features which are already implemented.  */
 /*                                                                          */
 /* Licensed under the Apache License, Version 2.0 (the "License");          */
 /* you may not use this file except in compliance with the License.         */
@@ -36,7 +25,6 @@
 /* See the License for the specific language governing permissions and      */
 /* limitations under the License.                                           */
 /****************************************************************************/
-
 
 // Taken from the RAMPS test code file...
 #define SDPOWER            -1
@@ -104,6 +92,7 @@ class Stepper {
   }
   //void step(double times) {}
   void testSpin(bool clockwise, int amount) {
+    Serial.println(amount);
     if(clockwise)
       dw(dirPin, LOW);
     else
@@ -131,14 +120,24 @@ class Stepper {
   }
 };
 
+/*class LCDScreen {
+ private:
+  int teea;
+  LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+ public:
+  LCDScreen() {
+    
+  }
+
+}*/
 
 // Initialise Steppers
 //         stepPin | dirPin | enablePin | minPin | maxPin 
 Stepper sX(54,       55,      38,         3,       2     );
 Stepper sY(60,       61,      56,         14,      15    );
 Stepper sZ(46,       48,      62,         18,      19    );
-Stepper sE(26,       28,      24,         NULL,    NULL  );
-Stepper sQ(36,       34,      30,         NULL,    NULL  );
+Stepper sE(26,       28,      24,         -1,      -1    );
+Stepper sQ(36,       34,      30,         -1,      -1    );
 
 // TODO Implement these functions
 /* void flashled() {} */
@@ -153,18 +152,23 @@ int getIndex(char code, String in) {
   bool toEnd = false;
 
   if(spaceIndex == -1) {
-    toEnd = true;
     Serial.println("toEnd is true!");
+    toEnd = true;
   }
 
+  Serial.print("spaceindex ");
+  Serial.println(spaceIndex);
+
   if(codeIndex == -1) {
-    Serial.println("nope not found");
-    Serial.println("code = " + code);
+    Serial.print("datablast ");
+    delay(200);
+    Serial.println(code);
+    delay(30);
     return -1;
   }
 
   if(!toEnd) {
-    String toconvert = in.substring(codeIndex + 1, spaceIndex - 1);
+    String toconvert = in.substring(codeIndex + 1, spaceIndex);
     Serial.println("convert :: " + toconvert);
     return toconvert.toInt();
   } else {
@@ -174,6 +178,11 @@ int getIndex(char code, String in) {
   }
 
   return -2;
+}
+
+String trim(String in) {
+  int spaceIndex = in.indexOf(" ");
+  return in.substring(spaceIndex + 1, in.length());
 }
 
 int strtoint(String in) {return in.toInt();}
@@ -188,13 +197,20 @@ int strtoint(String in) {return in.toInt();}
  */
 bool parseGCode(String in) {
   int xindex = getIndex('X', in);
-  //int yindex = getIndex('Y', in);
+  Serial.println(" ");
+  Serial.println(in);
+  in = trim(in);
+  Serial.println(in);
+  int yindex = getIndex('Y', in);
 
-  if(xindex != -1 && xindex != -2) sX.testSpin(true, xindex);
+  if(xindex != -1 && xindex != -2) sX.testSpin(true, xindex * 80);
   else Serial.println("getIndex::: x-error " + xindex);
 
-  //if(yindex != -1 && yindex != -2) sY.testSpin(true, yindex);
-  //else Serial.println("getIndex::: y-error " + yindex);
+  if(yindex != -1 && yindex != -2) sY.testSpin(true, yindex * 80);
+  else Serial.println("getIndex::: y-error " + yindex);
+
+  // fallback now, will be better implemented later
+  return true;
 }
 
 String serialStr = "";
@@ -223,10 +239,11 @@ void setup() {
 
   // Initialise motors
   sX.begin();
-  //sY.begin();
+  sY.begin();
 }
 
 void loop() {
   getSerialInput();
   sX.updateLoop();
+  sY.updateLoop();
 }
