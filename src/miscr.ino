@@ -186,12 +186,13 @@ class Stepper {
   }
   //void step(double times) {}
   void testSpin(int amount) {
+    amount *= 80;
     if(amount > 0)
       dw(dirPin, LOW);
     else
       dw(dirPin, HIGH);
     prevpos = pos;
-    pos += (amount / 80);
+    pos += amount / 80;
     update = true;
     command.pin = stepPin;
     command.times = abs(amount);
@@ -285,13 +286,20 @@ bool parseGCode(String in) {
     in = trim(in);
     int yindex = getIndex('Y', in);
 
-    if(xindex != INT_MIN) sX.testSpin(xindex * 80);
-    if(yindex != INT_MIN) sY.testSpin(yindex * 80);
+    if(xindex != INT_MIN) sX.testSpin(xindex);
+    if(yindex != INT_MIN) sY.testSpin(yindex);
 
     if(xindex == INT_MIN && yindex == INT_MIN) {
       out.msg(1, "No parameters/Invalid values for G0/G1");
       return false;
     }
+
+    return true;
+  } else if(gindex == 28) {
+    if(globalPos.x != 0)
+      sX.testSpin(globalPos.x - (globalPos.x * 2));
+    if(globalPos.y != 0)
+      sY.testSpin(globalPos.y - (globalPos.y * 2));
 
     return true;
   }
@@ -300,6 +308,10 @@ bool parseGCode(String in) {
 
   if(mindex == 114) {
     out.pos(0);
+    return false;
+  } else if(mindex == 115) {
+    Serial.println("ok PROTOCOL_VERSION:0.11 FIRMWARE_NAME:miscr FIRMWARE_URL:github.com/argarak/miscr MACHINE_TYPE:N/A EXTRUDER_COUNT:0");
+    Serial.println("");
     return false;
   }
 
