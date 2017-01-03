@@ -269,12 +269,7 @@ String trim(String in) {
 }
 
 /*
- * This function does not yet have any GCode parsing functionality,
- * it is currently only used for testing...
- *
- * Thanks to the blog post at:
- * https://www.marginallyclever.com/2013/08/how-to-build-an-2-axis-arduino-cnc-gcode-interpreter/
- * for helping me writing this function!
+ * Provides G-Code parsing functionality
  */
 bool parseGCode(String in) {
   int gindex = getIndex('G', in);
@@ -296,10 +291,19 @@ bool parseGCode(String in) {
 
     return true;
   } else if(gindex == 28) {
-    if(globalPos.x != 0)
+    int xindex = in.indexOf("X");
+    int yindex = in.indexOf("Y");
+
+    if(xindex == -1 && yindex == -1) {
+      if(globalPos.x != 0)
+        sX.testSpin(globalPos.x - (globalPos.x * 2));
+      if(globalPos.y != 0)
+        sY.testSpin(globalPos.y - (globalPos.y * 2));
+    } else if(xindex != -1 && globalPos.x != 0) {
       sX.testSpin(globalPos.x - (globalPos.x * 2));
-    if(globalPos.y != 0)
+    } else if(yindex != -1 && globalPos.y != 0) {
       sY.testSpin(globalPos.y - (globalPos.y * 2));
+    }
 
     return true;
   }
