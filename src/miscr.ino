@@ -285,8 +285,8 @@ bool parseGCode(String in) {
     in = trim(in);
     int yindex = getIndex('Y', in);
 
-    if(xindex > -1) sX.testSpin(xindex * 80);
-    if(yindex > -1) sY.testSpin(yindex * 80);
+    if(xindex != INT_MIN) sX.testSpin(xindex * 80);
+    if(yindex != INT_MIN) sY.testSpin(yindex * 80);
 
     if(xindex == INT_MIN && yindex == INT_MIN) {
       out.msg(1, "No parameters/Invalid values for G0/G1");
