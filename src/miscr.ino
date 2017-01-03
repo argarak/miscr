@@ -26,6 +26,8 @@
 /* limitations under the License.                                           */
 /****************************************************************************/
 
+#include <LiquidCrystal.h>
+
 // Taken from the RAMPS test code file...
 #define SDPOWER            -1
 #define SDSS               53
@@ -35,6 +37,26 @@
 
 #define PS_ON_PIN          12
 #define KILL_PIN           -1
+
+byte downline[8] = {
+  B10000,
+  B01000,
+  B10100,
+  B01010,
+  B00101,
+  B00010,
+  B00001,
+};
+
+byte midline[8] = {
+  B10101,
+  B10101,
+  B10101,
+  B10101,
+  B10101,
+  B10101,
+  B10101,
+};
 
 /*
  * Alias for the digitalWrite and pinMode functions
@@ -120,16 +142,18 @@ class Stepper {
   }
 };
 
-/*class LCDScreen {
- private:
-  int teea;
-  LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
- public:
-  LCDScreen() {
-    
-  }
 
-}*/
+// Initialise LCD
+
+#define LCD_PINS_RS      27
+#define LCD_PINS_ENABLE  29
+#define LCD_PINS_D4      37
+#define LCD_PINS_D5      35
+#define LCD_PINS_D6      33
+#define LCD_PINS_D7 31
+
+LiquidCrystal lcd(16, 17, 23, 25, 27, 29);
+
 
 // Initialise Steppers
 //         stepPin | dirPin | enablePin | minPin | maxPin 
@@ -231,12 +255,49 @@ void getSerialInput() {
   }
 }
 
+void initLCD() {
+  lcd.createChar(0, downline);
+  lcd.createChar(1, midline);
+
+  lcd.begin(16, 2);
+
+  // write top of logo
+  lcd.write(byte(0));
+  lcd.write(byte(1));
+  lcd.write(byte(0));
+
+  // set to bottom
+  lcd.setCursor(0, 1);
+
+  // write bottom of logo
+  lcd.write(byte(0));
+  lcd.write(byte(1));
+  lcd.write(byte(0));
+
+  lcd.setCursor(3, 0);
+
+  lcd.print("miscr v0.11");
+
+  lcd.setCursor(3, 1);
+
+  lcd.print("pre-release");
+
+  delay(1000);
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("miscr ready.");
+}
+
 void setup() {
   // Begin serial connection
   Serial.begin(115200);
 
-  // Print welcome message
+  // Print welcome message to serial connection
   Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n");
+
+  // Initialise LCD
+  initLCD();
 
   // Initialise motors
   sX.begin();
