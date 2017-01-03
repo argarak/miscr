@@ -37,6 +37,10 @@
 
 #define PS_ON_PIN          12
 #define KILL_PIN           -1
+#define INT_MIN            -10000 // Unfortunately needed for error-checking
+                                  // Not technically the lowest value for int
+                                  // however, got overflow errors when I did
+                                  // enter the lowest value
 
 byte downline[8] = {
   B10000,
@@ -235,12 +239,16 @@ int getIndex(char code, String in) {
   int spaceIndex = in.indexOf(" ");
   bool toEnd = false;
 
+  if(in.length() < 2) {
+    return INT_MIN;
+  }
+
   if(spaceIndex == -1) {
     toEnd = true;
   }
 
   if(codeIndex == -1) {
-    return -1;
+    return INT_MIN;
   }
 
   if(!toEnd) {
@@ -250,15 +258,14 @@ int getIndex(char code, String in) {
     String toconvert = in.substring(codeIndex + 1);
     return toconvert.toInt();
   }
-  return -2;
+
+  return INT_MIN;
 }
 
 String trim(String in) {
   int spaceIndex = in.indexOf(" ");
   return in.substring(spaceIndex + 1, in.length());
 }
-
-int strtoint(String in) {return in.toInt();}
 
 /*
  * This function does not yet have any GCode parsing functionality,
@@ -281,15 +288,22 @@ bool parseGCode(String in) {
     if(xindex > -1) sX.testSpin(xindex * 80);
     if(yindex > -1) sY.testSpin(yindex * 80);
 
-    if(xindex < 0 && yindex < 0) {
-      out.msg(1, "No parameters for G0/G1");
+    if(xindex == INT_MIN && yindex == INT_MIN) {
+      out.msg(1, "No parameters/Invalid values for G0/G1");
       return false;
     }
 
     return true;
   }
 
-  out.msg(1, "Incorrect G-Code entered");
+  int mindex = getIndex('M', in);
+
+  if(mindex == 114) {
+    out.pos(0);
+    return false;
+  }
+
+  out.msg(1, "Incorrect/Unsupported G-Code entered");
   return false;
 }
 
@@ -386,7 +400,7 @@ void updatePos() {
   globalPos.x = sX.pos;
   globalPos.y = sY.pos;
 
-  updateLCD();
+  //updateLCD();
 }
 
 void setup() {
@@ -408,5 +422,5 @@ void loop() {
   getSerialInput();
   sX.updateLoop();
   sY.updateLoop();
-  //updatePos();
+  updatePos();
 }
