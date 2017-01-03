@@ -79,6 +79,71 @@ class Command {
   }
 };
 
+class Position {
+ public:
+  int x;
+  int y;
+  int z;
+  Position() {
+    x = 0; y = 0; z = 0;
+  }
+};
+
+// Initialise global position object
+Position globalPos;
+
+class Message {
+ private:
+  void getStatus(int status) {
+    if(status == 0)
+      Serial.print("ok");
+    else if(status == 1)
+      Serial.print("rs");
+    else
+      Serial.print("!!");
+  }
+ public:
+  void msg(int status) {
+    getStatus(status);
+
+    // TODO Line numbers
+    Serial.println(" L000");
+    Serial.println("");
+  }
+  void pos(int status) {
+    getStatus(status);
+    Serial.print(" L000");
+    Serial.print(" C: X: ");
+    Serial.print(globalPos.x);
+    Serial.print(" Y: ");
+    Serial.print(globalPos.y);
+    Serial.println(" Z: N/A E: N/A");
+    Serial.println("");
+  }
+  void msg(int status, String info) {
+    getStatus(status);
+    Serial.print(" L000");
+    Serial.print(" // ");
+    Serial.println(info);
+    Serial.println("");
+  }
+  void pos(int status, String info) {
+    getStatus(status);
+    Serial.print(" L000");
+    Serial.print(" C: X: ");
+    Serial.print(globalPos.x);
+    Serial.print(" Y: ");
+    Serial.print(globalPos.y);
+    Serial.print(" Z: N/A E: N/A");
+    Serial.print(" // ");
+    Serial.println(info);
+    Serial.println("");
+  }
+};
+
+// Initialise global message object
+Message out;
+
 /*
  * Stepper class, defines pins, whether it should be updated and a few control
  * functions - one for each stepper.
@@ -93,8 +158,9 @@ class Stepper {
   int enablePin;
   int minPin;
   int maxPin;
-
  public:
+  int prevpos;
+  int pos;
   Stepper(int stepPinIn, int dirPinIn, int enablePinIn,
           int minPinIn, int maxPinIn) {
     stepPin = stepPinIn;
@@ -104,6 +170,8 @@ class Stepper {
     maxPin = maxPinIn;
     update = false;
     incr = 0;
+    pos = 0;
+    prevpos = 0;
   }
 
   void begin() {
@@ -114,11 +182,12 @@ class Stepper {
   }
   //void step(double times) {}
   void testSpin(int amount) {
-    Serial.println(amount);
     if(amount > 0)
       dw(dirPin, LOW);
     else
       dw(dirPin, HIGH);
+    prevpos = pos;
+    pos += (amount / 80);
     update = true;
     command.pin = stepPin;
     command.times = abs(amount);
@@ -142,16 +211,7 @@ class Stepper {
   }
 };
 
-
 // Initialise LCD
-
-#define LCD_PINS_RS      27
-#define LCD_PINS_ENABLE  29
-#define LCD_PINS_D4      37
-#define LCD_PINS_D5      35
-#define LCD_PINS_D6      33
-#define LCD_PINS_D7 31
-
 LiquidCrystal lcd(16, 17, 23, 25, 27, 29);
 
 
@@ -176,31 +236,20 @@ int getIndex(char code, String in) {
   bool toEnd = false;
 
   if(spaceIndex == -1) {
-    Serial.println("toEnd is true!");
     toEnd = true;
   }
 
-  Serial.print("spaceindex ");
-  Serial.println(spaceIndex);
-
   if(codeIndex == -1) {
-    Serial.print("datablast ");
-    delay(200);
-    Serial.println(code);
-    delay(30);
     return -1;
   }
 
   if(!toEnd) {
     String toconvert = in.substring(codeIndex + 1, spaceIndex);
-    Serial.println("convert :: " + toconvert);
     return toconvert.toInt();
   } else {
     String toconvert = in.substring(codeIndex + 1);
-    Serial.println("convert :: " + toconvert);
     return toconvert.toInt();
   }
-
   return -2;
 }
 
@@ -220,22 +269,34 @@ int strtoint(String in) {return in.toInt();}
  * for helping me writing this function!
  */
 bool parseGCode(String in) {
-  //int gindex = getIndex('G', in);
-  int xindex = getIndex('X', in);
-  Serial.println(" ");
-  Serial.println(in);
-  in = trim(in);
-  Serial.println(in);
-  int yindex = getIndex('Y', in);
+  int gindex = getIndex('G', in);
 
-  if(xindex != -1 && xindex != -2) sX.testSpin(xindex * 80);
-  else Serial.println("getIndex::: x-error " + xindex);
+  if(gindex == 1 || gindex == 0) {
+    in = trim(in);
+    int xindex = getIndex('X', in);
 
-  if(yindex != -1 && yindex != -2) sY.testSpin(yindex * 80);
-  else Serial.println("getIndex::: y-error " + yindex);
+    in = trim(in);
+    int yindex = getIndex('Y', in);
 
-  // fallback now, will be better implemented later
-  return true;
+    if(xindex > -1) sX.testSpin(xindex * 80);
+    if(yindex > -1) sY.testSpin(yindex * 80);
+
+    if(xindex < 0 && yindex < 0) {
+      out.msg(1, "No parameters for G0/G1");
+      return false;
+    }
+
+    return true;
+  }
+
+  out.msg(1, "Incorrect G-Code entered");
+  return false;
+}
+
+void printSupportedCommands() {
+  Serial.println("G0/G1 Move command");
+  Serial.println("See more detailed information in the miscr wiki");
+  Serial.println("");
 }
 
 String serialStr = "";
@@ -243,16 +304,22 @@ String serialStr = "";
 /*
  * Gets user serial input to be put into the parseGCode() function.
  */
-void getSerialInput() {
+int getSerialInput() {
   if(Serial.available() > 0) {
     serialStr = Serial.readString();
     serialStr.trim();
     if(Serial.read() == -1) {
       Serial.println(serialStr);
-      if(!parseGCode(serialStr))
-        Serial.println("Invalid GCode entered!");
+      if(serialStr == "?") {
+        printSupportedCommands();
+        return 0;
+      }
+
+      if(parseGCode(serialStr))
+        out.msg(0);
     }
   }
+  return 0;
 }
 
 void initLCD() {
@@ -286,7 +353,40 @@ void initLCD() {
 
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("miscr ready.");
+
+  lcd.print("X: ");
+  lcd.print(globalPos.x);
+
+  lcd.setCursor(0, 1);
+
+  lcd.print("Y: ");
+  lcd.print(globalPos.y);
+}
+
+int updateLCD() {
+  if(sX.prevpos == globalPos.x || sY.prevpos == globalPos.y) {
+    return -1;
+  }
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+
+  lcd.print("X: ");
+  lcd.print(globalPos.x);
+
+  lcd.setCursor(0, 1);
+
+  lcd.print("Y: ");
+  lcd.print(globalPos.y);
+
+  return 0;
+}
+
+void updatePos() {
+  globalPos.x = sX.pos;
+  globalPos.y = sY.pos;
+
+  updateLCD();
 }
 
 void setup() {
@@ -294,7 +394,7 @@ void setup() {
   Serial.begin(115200);
 
   // Print welcome message to serial connection
-  Serial.println("miscr v0.1 [enter \"?\" for commands and \"$\" for status]\n");
+  Serial.println("miscr v0.11 ready [enter \"?\" for supported commands]\n");
 
   // Initialise LCD
   initLCD();
@@ -308,4 +408,5 @@ void loop() {
   getSerialInput();
   sX.updateLoop();
   sY.updateLoop();
+  //updatePos();
 }
