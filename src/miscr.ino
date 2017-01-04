@@ -71,6 +71,18 @@ void pm(int pin, int mode) {pinMode(pin, mode);}
 
 int updateLCD();
 
+class Feedrate {
+ public:
+  float defaultVal;
+  float val;
+  Feedrate() {
+    defaultVal = 500;
+    val = defaultVal;
+  }
+};
+
+Feedrate globalDelay;
+
 /*
  * Command class, still a concept, but the pin will alternate once every
  * millisecond - as defined by the loop() function. Times defines the
@@ -78,19 +90,17 @@ int updateLCD();
  */
 class Command {
  public:
-  int pin;
-  int times; // TODO double data type for half-steps
+  float times; // TODO double data type for half-steps
   Command() {
-    pin = 0;
     times = 0;
   }
 };
 
 class Position {
  public:
-  int x;
-  int y;
-  int z;
+  float x;
+  float y;
+  float z;
   Position() {
     x = 0; y = 0; z = 0;
   }
@@ -115,7 +125,7 @@ class Message {
 
     // TODO Line numbers
     Serial.println(" L000");
-    Serial.println("");
+    //Serial.println("");
   }
   void pos(int status) {
     getStatus(status);
@@ -124,15 +134,17 @@ class Message {
     Serial.print(globalPos.x);
     Serial.print(" Y: ");
     Serial.print(globalPos.y);
-    Serial.println(" Z: N/A E: N/A");
-    Serial.println("");
+    Serial.print(" Z: ");
+    Serial.print(globalPos.z);
+    Serial.println(" E: N/A");
+    //Serial.println("");
   }
   void msg(int status, String info) {
     getStatus(status);
     Serial.print(" L000");
     Serial.print(" // ");
     Serial.println(info);
-    Serial.println("");
+    //Serial.println("");
   }
   void pos(int status, String info) {
     getStatus(status);
@@ -144,7 +156,7 @@ class Message {
     Serial.print(" Z: N/A E: N/A");
     Serial.print(" // ");
     Serial.println(info);
-    Serial.println("");
+    //Serial.println("");
   }
 };
 
@@ -188,7 +200,7 @@ class Stepper {
     dw(enablePin, LOW);
   }
   //void step(double times) {}
-  void testSpin(int amount) {
+  void testSpin(float amount) {
     amount *= 80;
     if(amount > 0)
       dw(dirPin, LOW);
@@ -197,7 +209,6 @@ class Stepper {
     prevpos = pos;
     pos += amount / 80;
     update = true;
-    command.pin = stepPin;
     command.times = abs(amount);
   }
 
@@ -206,7 +217,7 @@ class Stepper {
       if(incr < command.times) {
         // Alternate
         dw(stepPin, HIGH);
-        delay(1);
+        delayMicroseconds(globalDelay.val);
         dw(stepPin, LOW);
 
         // Add one to increment
@@ -214,7 +225,6 @@ class Stepper {
       } else {
         update = false;
         incr = 0;
-        out.msg(0);
       }
     }
   }
@@ -239,7 +249,7 @@ Stepper sQ(36,       34,      30,         -1,      -1    );
 /* bool yswitch() {} */
 /* bool zswitch() {} */
 
-int getIndex(char code, String in) {
+float getIndex(char code, String in) {
   int codeIndex = in.indexOf(code);
   int spaceIndex = in.indexOf(" ");
   bool toEnd = false;
@@ -258,10 +268,10 @@ int getIndex(char code, String in) {
 
   if(!toEnd) {
     String toconvert = in.substring(codeIndex + 1, spaceIndex);
-    return toconvert.toInt();
+    return toconvert.toFloat();
   } else {
     String toconvert = in.substring(codeIndex + 1);
-    return toconvert.toInt();
+    return toconvert.toFloat();
   }
 
   return INT_MIN;
@@ -270,6 +280,54 @@ int getIndex(char code, String in) {
 String trim(String in) {
   int spaceIndex = in.indexOf(" ");
   return in.substring(spaceIndex + 1, in.length());
+}
+
+/*
+ * Feedrate functions. These calculate the delay used for each step of each motor
+ * from the feedrate and distance. These can convert delays from only one
+ * dimension to all three dimensions. The delay is output in microseconds.
+ * Not sure if this is the correct way of doing this, but I don't have any
+ * experience in writing CNC firmware, so this may be completely non-standard
+ * and non-functional.
+ */
+float calc1DFeedrate(int feedrate, float distance) {
+  // Feedrate in mm/min, distance in mm
+  float rateseconds = feedrate / 60; // Convert to mm/s
+
+  // Calculate the time
+  float time = distance / rateseconds;
+
+  // Calculate delay
+  float delay = time / (distance * 80); // Delay for each step, convert mm to
+                                        // steps of each motor
+  delay *= (float)1000000; // Convert to microseconds
+
+  return delay;
+}
+
+float calc2DFeedrate(int feedrate, float x, float y) {
+  // Distance formula of two points
+  // Squares the difference between the final position and the current position
+  // Adds both axes and finally square roots everything
+  float distance = sqrt(sq(x - globalPos.x) + sq(y - globalPos.y));
+
+  // Same as before, convert feedrate to mm/s, calculate the time and finally
+  // the delay, see function calc1DFeedrate() above for better documentation
+  // as it basically does the same thing I need for this function. Therefore,
+  // I can just reference calc1DFeedrate(), without copying and pasting the
+  // same code!
+  return calc1DFeedrate(feedrate, distance);
+}
+
+float calc3DFeedrate(int feedrate, float x, float y, float z) {
+  // Distance formula of three points
+  // Same thing as before, this time also adding the squared difference of the
+  // Z value, yet Z values have not been implemented, so I'll use this function
+  // later.
+  float distance = sqrt(sq(x - globalPos.x) + sq(y - globalPos.y) + sq(z - globalPos.z));
+
+  // Again, return the fnuction calc1DFeedrate()
+  return calc1DFeedrate(feedrate, distance);
 }
 
 /*
@@ -285,6 +343,26 @@ bool parseGCode(String in) {
     in = trim(in);
     int yindex = getIndex('Y', in);
 
+    in = trim(in);
+    int findex = getIndex('F', in);
+
+    if(findex != INT_MIN) {
+      if(xindex != INT_MIN && yindex == INT_MIN) {
+        // Temporarily replace globalDelay value and calculate distance for X
+        globalDelay.val = calc1DFeedrate(findex, xindex);
+      } else if(xindex == INT_MIN && yindex != INT_MIN) {
+        // Temporarily replace globalDelay value and calculate distance for X
+        globalDelay.val = calc1DFeedrate(findex, yindex);
+      } else if(xindex != INT_MIN && yindex != INT_MIN) {
+        // Temporarily replace globalDelay value and calculate distanc
+        // from the current position to the position specified
+        globalDelay.val = calc2DFeedrate(findex, xindex, yindex);
+      } else if(xindex == INT_MIN && yindex == INT_MIN) {
+        // TODO Permanently replace globalDelay default value
+        // globalDelay.defaultVal = findex;
+      }
+    }
+
     if(xindex != INT_MIN) sX.testSpin(xindex);
     if(yindex != INT_MIN) sY.testSpin(yindex);
 
@@ -293,7 +371,7 @@ bool parseGCode(String in) {
       return false;
     }
 
-    return false;
+    return true;
   } else if(gindex == 28) {
     int xindex = in.indexOf("X");
     int yindex = in.indexOf("Y");
@@ -307,6 +385,10 @@ bool parseGCode(String in) {
       sX.testSpin(globalPos.x - (globalPos.x * 2));
     } else if(yindex != -1 && globalPos.y != 0) {
       sY.testSpin(globalPos.y - (globalPos.y * 2));
+    } else if(gindex == 91) {
+      return true;
+    } else if(gindex == 90) {
+      return true; // Not implemented, yet needed to test support for G-Code senders
     }
 
     return true;
@@ -363,7 +445,7 @@ int getSerialInput() {
     serialStr = Serial.readString();
     serialStr.trim();
     if(Serial.read() == -1) {
-      Serial.println(serialStr);
+      //Serial.println(serialStr);
       if(serialStr == "?") {
         printSupportedCommands();
         return 0;
