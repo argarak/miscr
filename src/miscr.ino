@@ -76,6 +76,20 @@ void pm(int pin, int mode) {pinMode(pin, mode);}
 // Constructor for the updateLCD() function
 int updateLCD();
 
+class TimeControl {
+ public:
+  bool pause; // Whether the machine is paused or not
+  unsigned long pausetime; // Stamp for when the machine has been paused
+  unsigned int increment; // How long it should wait for
+  TimeControl() {
+    pause = false;
+    pausetime = -1;
+    increment = 0;
+  }
+};
+
+TimeControl time;
+
 /*
  * Feedrate class, stores information about the current delay the motors should
  * run at and the default value on startup.
@@ -494,6 +508,20 @@ bool parseGCode(String in) {
     }
 
     return true;
+  } else if(gindex == 4) {
+    in = trim(in);
+
+    float pindex = getIndex('P', in);
+
+    if(pindex == INT_MIN) {
+      out.msg(1, "Parameter P Missing");
+      return false;
+    }
+
+    time.pause = true;
+    time.increment = pindex;
+
+    return true;
   }
 
   int mindex = getIndex('M', in);
@@ -704,9 +732,18 @@ void setup() {
 }
 
 void loop() {
-  getSerialInput();
-  sX.updateLoop();
-  sY.updateLoop();
-  fanOn(temperature.operation);
-  updatePos();
+  if(!time.pause) {
+    getSerialInput();
+    sX.updateLoop();
+    sY.updateLoop();
+    fanOn(temperature.operation);
+    updatePos();
+  } else {
+    if(time.pausetime == 0)
+      time.pausetime = millis();
+    if(millis() > time.pausetime + time.increment) {
+      time.pausetime = 0;
+      time.pause = false; // Return to regular operation
+    }
+  }
 }
