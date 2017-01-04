@@ -27,7 +27,6 @@
 /****************************************************************************/
 
 #include <LiquidCrystal.h>
-#include "../lib/TimerThree.h"
 
 // Taken from the RAMPS test code file...
 #define SDPOWER            -1
