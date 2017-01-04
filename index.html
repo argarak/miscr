@@ -33,31 +33,6 @@
                 </div>
             </noscript>-->
             <div layout="row" ng-controller="mainController" flex class="container">
-                <md-sidenav id="sidenav" md-is-locked-open="$mdMedia('gt-sm')" md-component-id="left" class="md-whiteframe-3dp md-sidenav-left">
-                    <md-content layout-padding="" layout="column" layout-align="center">
-                        <li class="navbarLi navbarl0"><a ui-sref="navbar({ name: &quot;home&quot; })"><img src="/navbar/nexus.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip0">Home</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl1"><a ui-sref="navbar({ name: &quot;about&quot; })"><img src="/navbar/about.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip1">About</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl2"><a ui-sref="navbar({ name: &quot;blog&quot; })"><img src="/navbar/blog.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip2">Blog</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl3"><a ui-sref="navbar({ name: &quot;programs&quot; })"><img src="/navbar/programs.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip3">Repositories</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl4"><a ui-sref="navbar({ name: &quot;archive&quot; })"><img src="/navbar/archive.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip4">Archive</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl5"><a ui-sref="navbar({ name: &quot;microblog&quot; })"><img src="/navbar/microblog.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip5">Microblog</md-tooltip>
-                        </li>
-                        <li class="navbarLi navbarl6"><a href="/feed.xml"><img src="/navbar/rss.svg"></a>
-                            <md-tooltip md-direction="right" class="tooltip6">RSS</md-tooltip>
-                        </li>
-                    </md-content>
-                </md-sidenav>
                 <md-content id="main-content" flex>
                     <ui-view>
                         <md-toolbar class="md-tall toolbar-padding"><span flex="flex"></span>
@@ -91,38 +66,6 @@
                         </div>
                     </ui-view>
                 </md-content>
-                <md-toolbar hide-gt-sm class="xs-toolbar">
-                    <div class="md-toolbar-tools"><a ui-sref="navbar({ name: &quot;home&quot; })">
-                        <md-button aria-label="Home" class="md-icon-button">
-                            <md-icon md-svg-icon="/navbar/nexus.svg"></md-icon>
-                        </md-button>
-                        <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a ui-sref="navbar({ name: &quot;about&quot; })">
-                            <md-button aria-label="About" class="md-icon-button">
-                                <md-icon md-svg-icon="/navbar/about.svg"></md-icon>
-                            </md-button>
-                            <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a ui-sref="navbar({ name: &quot;blog&quot; })">
-                                <md-button aria-label="Blog" class="md-icon-button">
-                                    <md-icon md-svg-icon="/navbar/blog.svg"></md-icon>
-                                </md-button>
-                                <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a ui-sref="navbar({ name: &quot;programs&quot; })">
-                                    <md-button aria-label="Repositories" class="md-icon-button">
-                                        <md-icon md-svg-icon="/navbar/programs.svg"></md-icon>
-                                    </md-button>
-                                    <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a ui-sref="navbar({ name: &quot;archive&quot; })">
-                                        <md-button aria-label="Archive" class="md-icon-button">
-                                            <md-icon md-svg-icon="/navbar/archive.svg"></md-icon>
-                                        </md-button>
-                                        <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a ui-sref="navbar({ name: &quot;microblog&quot; })">
-                                            <md-button aria-label="Microblog" class="md-icon-button">
-                                                <md-icon md-svg-icon="/navbar/microblog.svg"></md-icon>
-                                            </md-button>
-                                            <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip--></a><a href="/feed.xml">
-                                                <md-button aria-label="RSS" class="md-icon-button">
-                                                    <md-icon md-svg-icon="/navbar/rss.svg"></md-icon>
-                                                </md-button>
-                                                <!--md-tooltip(md-direction="top" class="tooltip" + index)= tooltip  --></a>
-                    </div>
-                </md-toolbar>
             </div>
         </div>
     </body>
