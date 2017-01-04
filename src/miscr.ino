@@ -37,6 +37,7 @@
 #define FAN_PIN            9
 
 #define BUZZ_PIN           31
+#define MAX_TEMP           200 // Maximum temperature in celcius
 
 #define PS_ON_PIN          12
 #define KILL_PIN           -1
@@ -122,6 +123,29 @@ class Position {
 
 // Initialise global position object
 Position globalPos;
+
+/*
+ * Temperature class, keeps information about current temperature (currently just a
+ * value, not based from real temperatures yet) and whether the fan should turn on
+ * or off. Also includes a function which converts current temperature into an 8-bit
+ * value which can be used in the analogWrite() function, when the fan activates.
+ */
+class Temperature {
+ public:
+  int celcius;
+  bool operation; // If the fan should be turned on
+
+  int getFanSpeed() {
+    return map(celcius, 0, MAX_TEMP, 0, 255);
+  }
+
+  Temperature() {
+    celcius = 0;
+    operation = false;
+  }
+};
+
+Temperature temperature;
 
 /*
  * Message class, provides functions to print out standard messages which, in theory,
@@ -271,7 +295,12 @@ Stepper sQ(36,       34,      30,         -1,      -1    );
 
 // TODO Implement these functions
 /* void flashled() {} */
-/* void fan(bool operation) {} */
+void fanOn(bool operation) {
+  if(operation)
+    analogWrite(FAN_PIN, temperature.getFanSpeed());
+  else
+    digitalWrite(FAN_PIN, LOW);
+}
 /* bool xswitch() {} */
 /* bool yswitch() {} */
 /* bool zswitch() {} */
@@ -509,6 +538,26 @@ bool parseGCode(String in) {
 
     tone(BUZZ_PIN, sindex, pindex);
     return true;
+  } else if(mindex == 104) {
+    // Set temperature
+    in = trim(in);
+    int sindex = getIndex('S', in);
+
+    if(sindex == INT_MIN) {
+      out.msg(1, "Parameter S Missing");
+      return false;
+    }
+
+    temperature.celcius = sindex;
+    return true;
+  } else if(mindex == 106) {
+    // Fan on
+    temperature.operation = true;
+    return true;
+  } else if(mindex == 107) {
+    // Fan off
+    temperature.operation = false;
+    return true;
   }
 
   out.msg(1, "Incorrect/Unsupported G-Code entered");
@@ -624,6 +673,9 @@ void setup() {
   // Initialise LCD
   initLCD();
 
+  // Initialise fan
+  pm(FAN_PIN, OUTPUT);
+
   // Initialise motors
   sX.begin();
   sY.begin();
@@ -633,5 +685,6 @@ void loop() {
   getSerialInput();
   sX.updateLoop();
   sY.updateLoop();
+  fanOn(temperature.operation);
   updatePos();
 }
