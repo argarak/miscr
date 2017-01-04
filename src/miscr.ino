@@ -26,7 +26,8 @@
 /* limitations under the License.                                           */
 /****************************************************************************/
 
-#include <LiquidCrystal.h>
+#include <LiquidCrystal.h> // Include the LiquidCrystal library to interface
+                           // with an LCD screen
 
 // Taken from the RAMPS test code file...
 #define SDPOWER            -1
@@ -42,6 +43,7 @@
                                   // however, got overflow errors when I did
                                   // enter the lowest value
 
+// Define custom characters for miscr logo
 byte downline[8] = {
   B10000,
   B01000,
@@ -63,13 +65,18 @@ byte midline[8] = {
 };
 
 /*
- * Alias for the digitalWrite and pinMode functions
+ * Alias for the digitalWrite and pinMode functions.
  */
 void dw(int pin, int mode) {digitalWrite(pin, mode);}
 void pm(int pin, int mode) {pinMode(pin, mode);}
 
+// Constructor for the updateLCD() function
 int updateLCD();
 
+/*
+ * Feedrate class, stores information about the current delay the motors should
+ * run at and the default value on startup.
+ */
 class Feedrate {
  public:
   float defaultVal;
@@ -95,6 +102,12 @@ class Command {
   }
 };
 
+/*
+ * Position class, keeps a global position of where each motor is. miscr does not yet
+ * feature any calibration functionality as I do not have a fully built system with
+ * endstops for testing, therefore, the firmware thinks it's at (0, 0, 0) every time
+ * it resets.
+ */
 class Position {
  public:
   float x;
@@ -108,6 +121,10 @@ class Position {
 // Initialise global position object
 Position globalPos;
 
+/*
+ * Message class, provides functions to print out standard messages which, in theory,
+ * will make miscr compatible with other G-Code senders.
+ */
 class Message {
  private:
   void getStatus(int status) {
@@ -339,10 +356,14 @@ bool parseGCode(String in) {
     in = trim(in);
     int xindex = getIndex('X', in);
 
-    in = trim(in);
+    if(xindex != INT_MIN)
+      in = trim(in);
+
     int yindex = getIndex('Y', in);
 
-    in = trim(in);
+    if(yindex != INT_MIN)
+      in = trim(in);
+
     int findex = getIndex('F', in);
 
     if(findex != INT_MIN) {
@@ -399,8 +420,9 @@ bool parseGCode(String in) {
     out.pos(0);
     return false;
   } else if(mindex == 115) {
-    Serial.println("ok PROTOCOL_VERSION:0.11 FIRMWARE_NAME:miscr FIRMWARE_URL:github.com/argarak/miscr MACHINE_TYPE:N/A EXTRUDER_COUNT:0");
-    Serial.println("");
+    Serial.print("ok PROTOCOL_VERSION:0.11 FIRMWARE_NAME:miscr ");
+    Serial.print("FIRMWARE_URL:github.com/argarak/miscr MACHINE_TYPE:N/A ");
+    Serial.println("EXTRUDER_COUNT:0");
     return false;
   } else if(mindex == 70 || mindex == 117) {
     int pindex = getIndex('P', in);
