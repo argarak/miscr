@@ -206,7 +206,9 @@ class Message {
     Serial.print(globalPos.x);
     Serial.print(" Y: ");
     Serial.print(globalPos.y);
-    Serial.print(" Z: N/A E: N/A");
+    Serial.print(" Z: ");
+    Serial.print(globalPos.z);
+    Serial.print(" E: N/A");
     Serial.print(" // ");
     Serial.println(info);
     //Serial.println("");
@@ -438,29 +440,61 @@ bool parseGCode(String in) {
     if(yindex != INT_MIN)
       in = trim(in);
 
+    int zindex = getIndex('Z', in);
+
+    if(zindex != INT_MIN)
+      in = trim(in);
+
     int findex = getIndex('F', in);
 
     if(findex != INT_MIN) {
-      if(xindex != INT_MIN && yindex == INT_MIN) {
+      /*
+       * Just to keep myself right...
+       * Checked:
+       * When only X is specified *
+       * When only Y is specified *
+       * When only Z is specified *
+       * When only X and Y are specified *
+       * When only Y and Z are specified *
+       * When only X and Z are specified *
+       * When X, Y and Z are specified *
+       */
+      if(xindex != INT_MIN && yindex == INT_MIN && zindex == INT_MIN) {
         // Temporarily replace globalDelay value and calculate distance for X
         globalDelay.val = calc1DFeedrate(findex, xindex);
-      } else if(xindex == INT_MIN && yindex != INT_MIN) {
+      } else if(xindex == INT_MIN && yindex != INT_MIN && zindex == INT_MIN) {
         // Temporarily replace globalDelay value and calculate distance for X
         globalDelay.val = calc1DFeedrate(findex, yindex);
-      } else if(xindex != INT_MIN && yindex != INT_MIN) {
-        // Temporarily replace globalDelay value and calculate distanc
+      } else if(xindex == INT_MIN && yindex == INT_MIN && zindex != INT_MIN) {
+        // When only Z is specified
+        globalDelay.val = calc1DFeedrate(findex, zindex);
+      } else if(xindex != INT_MIN && yindex != INT_MIN && zindex == INT_MIN) {
+        // Temporarily replace globalDelay value and calculate distance
         // from the current position to the position specified
         globalDelay.val = calc2DFeedrate(findex, xindex, yindex);
-      } else if(xindex == INT_MIN && yindex == INT_MIN) {
+      } else if(xindex == INT_MIN && yindex != INT_MIN && zindex != INT_MIN) {
+        // When only Y and Z are specified
+        globalDelay.val = calc2DFeedrate(findex, yindex, zindex);
+      } else if(xindex != INT_MIN && yindex == INT_MIN && zindex != INT_MIN) {
+        // When only X and Z are specified
+        globalDelay.val = calc2DFeedrate(findex, xindex, zindex);
+      } else if(xindex != INT_MIN && yindex != INT_MIN && zindex != INT_MIN) {
+        // When X, Y and Z are specified
+        globalDelay.val = calc3DFeedrate(findex, xindex, yindex, zindex);
+      } else if(xindex == INT_MIN && yindex == INT_MIN && zindex == INT_MIN) {
         // TODO Permanently replace globalDelay default value
         // globalDelay.defaultVal = findex;
+      } else {
+        out.msg(1, "Invalid Syntax for Feedrate Parameter");
+        return false;
       }
     }
 
     if(xindex != INT_MIN) sX.testSpin(xindex);
     if(yindex != INT_MIN) sY.testSpin(yindex);
+    if(zindex != INT_MIN) sZ.testSpin(zindex);
 
-    if(xindex == INT_MIN && yindex == INT_MIN) {
+    if(xindex == INT_MIN && yindex == INT_MIN && zindex == INT_MIN && findex == INT_MIN) {
       out.msg(1, "No parameters/Invalid values for G0/G1");
       return false;
     }
@@ -469,16 +503,21 @@ bool parseGCode(String in) {
   } else if(gindex == 28) {
     int xindex = in.indexOf("X");
     int yindex = in.indexOf("Y");
+    int zindex = in.indexOf("Z");
 
-    if(xindex == -1 && yindex == -1) {
+    if(xindex == -1 && yindex == -1 && zindex == -1) {
       if(globalPos.x != 0)
         sX.testSpin(globalPos.x - (globalPos.x * 2));
       if(globalPos.y != 0)
         sY.testSpin(globalPos.y - (globalPos.y * 2));
+      if(globalPos.z != 0)
+        sZ.testSpin(globalPos.z - (globalPos.z * 2));
     } else if(xindex != -1 && globalPos.x != 0) {
       sX.testSpin(globalPos.x - (globalPos.x * 2));
     } else if(yindex != -1 && globalPos.y != 0) {
       sY.testSpin(globalPos.y - (globalPos.y * 2));
+    } else if(zindex != -1 && globalPos.z != 0) {
+      sZ.testSpin(globalPos.z - (globalPos.z * 2));
     }
 
     return true;
@@ -501,7 +540,12 @@ bool parseGCode(String in) {
     if(yindex != INT_MIN)
       sY.pos = yindex;
 
-    if(xindex == INT_MIN && yindex == INT_MIN) {
+    float zindex = getIndex('Z', in);
+
+    if(zindex != INT_MIN)
+      sZ.pos = zindex;
+
+    if(xindex == INT_MIN && yindex == INT_MIN && zindex == INT_MIN) {
       sX.pos = 0;
       sY.pos = 0;
       sZ.pos = 0;
@@ -561,11 +605,13 @@ bool parseGCode(String in) {
     // Disable all stepper motors
     sX.disable();
     sY.disable();
+    sZ.disable();
     // TODO add more motors
   } else if(mindex == 18) {
     // Enable all stepper motors
     sX.enable();
     sY.enable();
+    sZ.enable();
     // TODO add more motors
   } else if(mindex == 300) {
     // Beep sound
@@ -681,14 +727,19 @@ void initLCD() {
   lcd.print("X: ");
   lcd.print(globalPos.x);
 
-  lcd.setCursor(0, 1);
+  lcd.print(" ");
 
   lcd.print("Y: ");
   lcd.print(globalPos.y);
+
+  lcd.setCursor(0, 1);
+
+  lcd.print("Z: ");
+  lcd.print(globalPos.z);
 }
 
 int updateLCD() {
-  if(sX.prevpos == globalPos.x || sY.prevpos == globalPos.y) {
+  if(sX.prevpos == globalPos.x || sY.prevpos == globalPos.y || sZ.prevpos == globalPos.z) {
     return -1;
   }
 
@@ -709,6 +760,7 @@ int updateLCD() {
 void updatePos() {
   globalPos.x = sX.pos;
   globalPos.y = sY.pos;
+  globalPos.z = sZ.pos;
 
   //updateLCD();
 }
@@ -729,6 +781,7 @@ void setup() {
   // Initialise motors
   sX.begin();
   sY.begin();
+  sZ.begin();
 }
 
 void loop() {
@@ -736,6 +789,7 @@ void loop() {
     getSerialInput();
     sX.updateLoop();
     sY.updateLoop();
+    sZ.updateLoop();
     fanOn(temperature.operation);
     updatePos();
   } else {
