@@ -472,6 +472,28 @@ bool parseGCode(String in) {
     return true;
   } else if(gindex == 90) {
     return true; // Not implemented, yet needed to test support for G-Code senders
+  } else if(gindex == 92) {
+    in = trim(in);
+
+    float xindex = getIndex('X', in);
+
+    if(xindex != INT_MIN) {
+      sX.pos = xindex;
+      in = trim(in);
+    }
+
+    float yindex = getIndex('Y', in);
+
+    if(yindex != INT_MIN)
+      sY.pos = yindex;
+
+    if(xindex == INT_MIN && yindex == INT_MIN) {
+      sX.pos = 0;
+      sY.pos = 0;
+      sZ.pos = 0;
+    }
+
+    return true;
   }
 
   int mindex = getIndex('M', in);
