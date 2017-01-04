@@ -36,6 +36,8 @@
 
 #define FAN_PIN            9
 
+#define BUZZ_PIN           31
+
 #define PS_ON_PIN          12
 #define KILL_PIN           -1
 #define INT_MIN            -10000 // Unfortunately needed for error-checking
@@ -138,14 +140,11 @@ class Message {
  public:
   void msg(int status) {
     getStatus(status);
-
-    // TODO Line numbers
-    Serial.println(" L000");
-    //Serial.println("");
+    Serial.println("");
   }
   void pos(int status) {
     getStatus(status);
-    Serial.print(" L000");
+    //Serial.print(" L000");
     Serial.print(" C: X: ");
     Serial.print(globalPos.x);
     Serial.print(" Y: ");
@@ -157,14 +156,14 @@ class Message {
   }
   void msg(int status, String info) {
     getStatus(status);
-    Serial.print(" L000");
+    //Serial.print(" L000");
     Serial.print(" // ");
     Serial.println(info);
     //Serial.println("");
   }
   void pos(int status, String info) {
     getStatus(status);
-    Serial.print(" L000");
+    //Serial.print(" L000");
     Serial.print(" C: X: ");
     Serial.print(globalPos.x);
     Serial.print(" Y: ");
@@ -173,6 +172,10 @@ class Message {
     Serial.print(" // ");
     Serial.println(info);
     //Serial.println("");
+  }
+  void tmp(int status) {
+    getStatus(status);
+    Serial.println(" T:0 B:0");
   }
 };
 
@@ -226,6 +229,14 @@ class Stepper {
     pos += amount / 80;
     update = true;
     command.times = abs(amount);
+  }
+
+  void enable() {
+    dw(enablePin, HIGH);
+  }
+
+  void disable() {
+    dw(enablePin, LOW);
   }
 
   void updateLoop() {
@@ -347,9 +358,29 @@ float calc3DFeedrate(int feedrate, float x, float y, float z) {
 }
 
 /*
+ * Remove the checksum (*) at the end of a line
+ */
+String removeChecksum(String in) {
+  int checksumIndex = in.indexOf('*');
+
+  if(checksumIndex == -1)
+    return "";
+
+  return in.substring(0, checksumIndex);
+}
+
+/*
  * Provides G-Code parsing functionality
  */
 bool parseGCode(String in) {
+  int nindex = getIndex('N', in);
+
+  if(nindex != INT_MIN)
+    in = trim(in);
+
+  if(in.indexOf('*') != -1)
+    in = removeChecksum(in);
+
   int gindex = getIndex('G', in);
 
   if(gindex == 1 || gindex == 0) {
@@ -405,13 +436,13 @@ bool parseGCode(String in) {
       sX.testSpin(globalPos.x - (globalPos.x * 2));
     } else if(yindex != -1 && globalPos.y != 0) {
       sY.testSpin(globalPos.y - (globalPos.y * 2));
-    } else if(gindex == 91) {
-      return true;
-    } else if(gindex == 90) {
-      return true; // Not implemented, yet needed to test support for G-Code senders
     }
 
     return true;
+  } else if(gindex == 91) {
+    return true;
+  } else if(gindex == 90) {
+    return true; // Not implemented, yet needed to test support for G-Code senders
   }
 
   int mindex = getIndex('M', in);
@@ -444,6 +475,40 @@ bool parseGCode(String in) {
       delay(pindex);
       return true;
     }
+  } else if(mindex == 105) {
+    out.tmp(0);
+    return false;
+  } else if(mindex == 17) {
+    // Disable all stepper motors
+    sX.disable();
+    sY.disable();
+    // TODO add more motors
+  } else if(mindex == 18) {
+    // Enable all stepper motors
+    sX.enable();
+    sY.enable();
+    // TODO add more motors
+  } else if(mindex == 300) {
+    // Beep sound
+    in = trim(in);
+
+    int sindex = getIndex('S', in);
+
+    if(sindex == INT_MIN) {
+      out.msg(1, "Frequency not specified");
+      return false;
+    }
+
+    in = trim(in);
+    int pindex = getIndex('P', in);
+
+    if(pindex == INT_MIN) {
+      out.msg(1, "Period not specified");
+      return false;
+    }
+
+    tone(BUZZ_PIN, sindex, pindex);
+    return true;
   }
 
   out.msg(1, "Incorrect/Unsupported G-Code entered");
@@ -451,7 +516,10 @@ bool parseGCode(String in) {
 }
 
 void printSupportedCommands() {
-  Serial.println("G0/G1 Move command");
+  Serial.println("G0/G1  Move");
+  Serial.println("G28    Move to Origin");
+  Serial.println("M114   Get Current Position");
+  Serial.println("M115   Get Firmware Version and Capabilities");
   Serial.println("See more detailed information in the miscr wiki");
   Serial.println("");
 }
@@ -466,7 +534,7 @@ int getSerialInput() {
     serialStr = Serial.readString();
     serialStr.trim();
     if(Serial.read() == -1) {
-      //Serial.println(serialStr);
+      Serial.println(serialStr); // debug
       if(serialStr == "?") {
         printSupportedCommands();
         return 0;
