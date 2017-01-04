@@ -27,6 +27,7 @@
 /****************************************************************************/
 
 #include <LiquidCrystal.h>
+#include "../lib/TimerThree.h"
 
 // Taken from the RAMPS test code file...
 #define SDPOWER            -1
@@ -67,6 +68,8 @@ byte midline[8] = {
  */
 void dw(int pin, int mode) {digitalWrite(pin, mode);}
 void pm(int pin, int mode) {pinMode(pin, mode);}
+
+int updateLCD();
 
 /*
  * Command class, still a concept, but the pin will alternate once every
@@ -211,6 +214,7 @@ class Stepper {
       } else {
         update = false;
         incr = 0;
+        out.msg(0);
       }
     }
   }
@@ -289,7 +293,7 @@ bool parseGCode(String in) {
       return false;
     }
 
-    return true;
+    return false;
   } else if(gindex == 28) {
     int xindex = in.indexOf("X");
     int yindex = in.indexOf("Y");
@@ -317,6 +321,26 @@ bool parseGCode(String in) {
     Serial.println("ok PROTOCOL_VERSION:0.11 FIRMWARE_NAME:miscr FIRMWARE_URL:github.com/argarak/miscr MACHINE_TYPE:N/A EXTRUDER_COUNT:0");
     Serial.println("");
     return false;
+  } else if(mindex == 70 || mindex == 117) {
+    int pindex = getIndex('P', in);
+
+    if(pindex == INT_MIN) {
+      if(mindex == 70) {
+        out.msg(1, "No time specified");
+        return false;
+      } else {
+        in = trim(in);
+        lcd.clear();
+        lcd.print(in);
+        return true;
+      }
+    } else {
+      in = trim(trim(in));
+      lcd.clear();
+      lcd.print(in);
+      delay(pindex);
+      return true;
+    }
   }
 
   out.msg(1, "Incorrect/Unsupported G-Code entered");
