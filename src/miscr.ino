@@ -130,8 +130,9 @@ class Position {
   float x;
   float y;
   float z;
+  bool absolute;
   Position() {
-    x = 0; y = 0; z = 0;
+    x = 0; y = 0; z = 0; absolute = false;
   }
 };
 
@@ -266,9 +267,16 @@ class Stepper {
     else
       dw(dirPin, HIGH);
     prevpos = pos;
-    pos += amount / 80;
-    update = true;
-    command.times = abs(amount);
+    if(!globalPos.absolute) {
+      pos += amount / 80;
+      update = true;
+      command.times = abs(amount);
+    } else {
+      pos = amount / 80;
+      update = true;
+      int toRelative = amount - prevpos; // Convert absolute to relative
+      command.times = abs(toRelative);
+    }
   }
 
   void enable() {
@@ -505,6 +513,13 @@ bool parseGCode(String in) {
     int yindex = in.indexOf("Y");
     int zindex = in.indexOf("Z");
 
+    bool wasAbsolute = false;
+
+    if(globalPos.absolute) {
+      wasAbsolute = true;
+      globalPos.absolute = false;
+    }
+
     if(xindex == -1 && yindex == -1 && zindex == -1) {
       if(globalPos.x != 0)
         sX.testSpin(globalPos.x - (globalPos.x * 2));
@@ -520,11 +535,16 @@ bool parseGCode(String in) {
       sZ.testSpin(globalPos.z - (globalPos.z * 2));
     }
 
+    if(wasAbsolute)
+      globalPos.absolute = true;
+
     return true;
   } else if(gindex == 91) {
+    globalPos.absolute = false;
     return true;
   } else if(gindex == 90) {
-    return true; // Not implemented, yet needed to test support for G-Code senders
+    globalPos.absolute = true;
+    return true;
   } else if(gindex == 92) {
     in = trim(in);
 
@@ -565,6 +585,8 @@ bool parseGCode(String in) {
     time.pause = true;
     time.increment = pindex;
 
+    return true;
+  } else if(gindex == 21) {
     return true;
   }
 
