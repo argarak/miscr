@@ -37,6 +37,8 @@
 #define FAN_PIN            9
 
 #define BUZZ_PIN           31
+#define STATUS_RED         35
+#define STATUS_GRN         33
 #define MAX_TEMP           200 // Maximum temperature in celcius
 
 #define PS_ON_PIN          12
@@ -76,11 +78,26 @@ void pm(int pin, int mode) {pinMode(pin, mode);}
 // Constructor for the updateLCD() function
 int updateLCD();
 
+// Sets the global debug level
+int debugLevel = 0;
+
 class TimeControl {
  public:
   bool pause; // Whether the machine is paused or not
   unsigned long pausetime; // Stamp for when the machine has been paused
   unsigned int increment; // How long it should wait for
+  void status(int statcode) {
+    dw(STATUS_GRN, LOW);
+    dw(STATUS_RED, LOW);
+    if(statcode == 0)
+      dw(STATUS_GRN, HIGH);
+    else if(statcode == 1)
+      dw(STATUS_RED, HIGH);
+    else {
+      dw(STATUS_RED, HIGH);
+      dw(STATUS_GRN, HIGH);
+    }
+  }
   TimeControl() {
     pause = false;
     pausetime = -1;
@@ -113,7 +130,7 @@ Feedrate globalDelay;
  */
 class Command {
  public:
-  float times; // TODO double data type for half-steps
+  float times;
   Command() {
     times = 0;
   }
@@ -196,9 +213,11 @@ class Message {
   void msg(int status, String info) {
     getStatus(status);
     //Serial.print(" L000");
-    Serial.print(" // ");
-    Serial.println(info);
-    //Serial.println("");
+    if(debugLevel > 0) {
+      Serial.print(" // ");
+      Serial.println(info);
+    } else
+      Serial.println("");
   }
   void pos(int status, String info) {
     getStatus(status);
@@ -210,8 +229,11 @@ class Message {
     Serial.print(" Z: ");
     Serial.print(globalPos.z);
     Serial.print(" E: N/A");
-    Serial.print(" // ");
-    Serial.println(info);
+    if(debugLevel > 0) {
+      Serial.print(" // ");
+      Serial.println(info);
+    } else
+      Serial.println("");
     //Serial.println("");
   }
   void tmp(int status) {
@@ -306,7 +328,7 @@ class Stepper {
 };
 
 // Initialise LCD
-LiquidCrystal lcd(16, 17, 23, 25, 27, 29);
+LiquidCrystal lcd(16, 17, 29, 27, 25, 23);
 
 
 // Initialise Steppers
@@ -491,7 +513,7 @@ bool parseGCode(String in) {
         globalDelay.val = calc3DFeedrate(findex, xindex, yindex, zindex);
       } else if(xindex == INT_MIN && yindex == INT_MIN && zindex == INT_MIN) {
         // TODO Permanently replace globalDelay default value
-        // globalDelay.defaultVal = findex;
+        globalDelay.defaultVal = findex;
       } else {
         out.msg(1, "Invalid Syntax for Feedrate Parameter");
         return false;
@@ -509,6 +531,8 @@ bool parseGCode(String in) {
 
     return true;
   } else if(gindex == 28) {
+    time.status(2);
+
     int xindex = in.indexOf("X");
     int yindex = in.indexOf("Y");
     int zindex = in.indexOf("Z");
@@ -676,6 +700,17 @@ bool parseGCode(String in) {
     // Fan off
     temperature.operation = false;
     return true;
+  } else if(mindex == 111) {
+    in = trim(in);
+    int sindex = getIndex('S', in);
+    if(sindex != INT_MIN)
+      debugLevel = sindex;
+    else {
+      out.msg(1, "No debug level specified");
+      return false;
+    }
+
+    return true;
   }
 
   out.msg(1, "Incorrect/Unsupported G-Code entered");
@@ -698,10 +733,12 @@ String serialStr = "";
  */
 int getSerialInput() {
   if(Serial.available() > 0) {
+    time.status(0);
     serialStr = Serial.readString();
     serialStr.trim();
     if(Serial.read() == -1) {
-      Serial.println(serialStr); // debug
+      if(debugLevel > 1)
+        Serial.println(serialStr); // debug
       if(serialStr == "?") {
         printSupportedCommands();
         return 0;
@@ -710,6 +747,8 @@ int getSerialInput() {
       if(parseGCode(serialStr))
         out.msg(0);
     }
+  } else {
+    time.status(1);
   }
   return 0;
 }
@@ -799,6 +838,10 @@ void setup() {
 
   // Initialise fan
   pm(FAN_PIN, OUTPUT);
+
+  // Initialise LED status
+  pm(STATUS_GRN, OUTPUT);
+  pm(STATUS_RED, OUTPUT);
 
   // Initialise motors
   sX.begin();
