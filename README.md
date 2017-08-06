@@ -1,5 +1,7 @@
 # miscr
 
+### This repository is no longer going to be updated since I'm re-writing this to AVR-libc. The new repository can be found [here](https://github.com/mirpm/mod-miscr).
+
 `miscr` (Micro-Controller Interfaced Stepper Control with RAMPS) aims to be a simple stepper controller, also including features such as Bluetooth and SD-Card loading, a simple G-Code interpreter, LCD screen support, calibration and more. It’s not meant to be a complicated, professional piece of software for controlling steppers for a CNC environment, however, will be something simple to tinker with.
 
 **I don’t intend to implement extruder support any time soon...**
